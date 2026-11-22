@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>927 Holly Creek — Wine, Beer &amp; Spirits</title>
+
+  <!-- Editorial Serif + Crisp Sans-Serif -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- PapaParse for reliable CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0E0E10;
+      --surface: #16161A;
+      --surface-elevated: #1E1E24;
+      --gold: #C8A97E;
+      --gold-dim: rgba(200, 169, 126, 0.22);
+      --gold-glow: rgba(200, 169, 126, 0.08);
+      --text: #F4F1EA;
+      --text-secondary: #CFCAC0;
+      --text-muted: #8E897F;
+      --divider: rgba(244, 241, 234, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      padding-bottom: 64px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      padding: 44px 24px 28px;
+      background: radial-gradient(ellipse at top, var(--gold-glow) 0%, transparent 72%);
+      border-bottom: 1px solid var(--gold-dim);
+    }
+
+    .eyebrow {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(2.25rem, 6vw, 2.85rem);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+      color: var(--text);
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      letter-spacing: 0.02em;
+    }
+
+    /* Sticky Controls */
+    .controls {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(14, 14, 16, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 14px 20px 16px;
+      border-bottom: 1px solid var(--gold-dim);
+    }
+
+    .search-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      stroke: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--gold-dim);
+      border-radius: 12px;
+      padding: 12px 38px 12px 40px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-input:focus {
+      border-color: var(--gold);
+      background: var(--surface-elevated);
+    }
+
+    .clear-btn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      padding: 6px 8px;
+      cursor: pointer;
+      display: none;
+    }
+
+    .clear-btn.visible {
+      display: block;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab {
+      flex: 1;
+      min-width: 72px;
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      color: var(--text-secondary);
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      border-color: var(--gold);
+      color: var(--text);
+    }
+
+    .tab.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #0E0E10;
+      font-weight: 600;
+    }
+
+    /* Menu Content */
+    .menu-body {
+      padding: 12px 20px 24px;
+    }
+
+    .group-section {
+      margin-top: 28px;
+    }
+
+    .group-section:first-child {
+      margin-top: 12px;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--gold-dim);
+      padding-bottom: 8px;
+      margin-bottom: 6px;
+    }
+
+    .group-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.55rem;
+      font-weight: 600;
+      color: var(--gold);
+      letter-spacing: 0.02em;
+    }
+
+    .group-count {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Drink Item Card */
+    .item {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+
+    .item:last-child {
+      border-bottom: none;
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .item-name {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      line-height: 1.25;
+      color: var(--text);
+    }
+
+    .item-qty {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      border: 1px solid var(--divider);
+      background: var(--surface);
+      padding: 2px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+
+    .item-meta {
+      font-size: 0.78rem;
+      color: var(--gold);
+      opacity: 0.85;
+      margin-top: 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .item-notes {
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      margin-top: 7px;
+      line-height: 1.5;
+    }
+
+    /* States */
+    .status-box {
+      text-align: center;
+      padding: 56px 20px;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+
+    .spinner {
+      width: 26px;
+      height: 26px;
+      border: 2px solid var(--gold-dim);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      margin: 0 auto 14px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--divider);
+      margin: 0 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="eyebrow">House Collection</div>
+      <h1>927 Holly Creek</h1>
+      <p class="subtitle">Tonight’s available wines, drafts &amp; spirits</p>
+    </header>
+
+    <div class="controls">
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Search wine, beer, bourbon, tasting notes..."
+          aria-label="Search drinks"
+        />
+        <button id="clearSearch" class="clear-btn" aria-label="Clear search">&times;</button>
+      </div>
+
+      <div class="tabs" id="categoryTabs" role="tablist">
+        <button class="tab active" data-category="All" role="tab">All</button>
+        <button class="tab" data-category="Wine" role="tab">Wine</button>
+        <button class="tab" data-category="Beer" role="tab">Beer</button>
+        <button class="tab" data-category="Liquor" role="tab">Liquor</button>
+      </div>
+    </div>
+
+    <main class="menu-body" id="menuContainer">
+      <div class="status-box">
+        <div class="spinner"></div>
+        Loading tonight’s selection...
+      </div>
+    </main>
+
+    <footer>
+      Help yourself or ask the host for a pour · Cheers
+    </footer>
+  </div>
+
+  <script>
+    const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiiNvPQ9jYTAH_duQkYKalNmLeuIlRHZoaUSjBbYddCFdnmwPughyiDbD6zZtz8dX4TolOZrIkkg3J/pub?output=csv";
+
+    let allItems = [];
+    let selectedCategory = "All";
+    let searchQuery = "";
+
+    const menuContainer = document.getElementById("menuContainer");
+    const searchInput = document.getElementById("searchInput");
+    const clearSearchBtn = document.getElementById("clearSearch");
+    const categoryTabs = document.getElementById("categoryTabs");
+
+    function normalizeRow(row) {
+      const getVal = (keys) => {
+        for (const k of Object.keys(row)) {
+          if (keys.includes(k.trim().toLowerCase())) {
+            return (row[k] || "").toString().trim();
+          }
+        }
+        return "";
+      };
+
+      const stockRaw = getVal(["in stock", "instock", "available", "stock"]).toLowerCase();
+      const qtyRaw = getVal(["qty in stock", "qty", "quantity"]);
+      const qtyNum = qtyRaw !== "" ? parseFloat(qtyRaw) : null;
+
+      // Item is available ONLY if "In Stock" is not False AND "Qty In Stock" (if entered) is > 0
+      const flagInStock = !["false", "no", "0", "out", "sold out"].includes(stockRaw);
+      const hasQty = qtyNum === null || isNaN(qtyNum) || qtyNum > 0;
+
+      return {
+        category: getVal(["category"]),
+        subcategory: getVal(["subcategory"]),
+        name: getVal(["name"]),
+        origin: getVal(["producer / origin", "producer", "origin"]),
+        spec: getVal(["abv / vintage", "abv", "vintage"]),
+        notes: getVal(["notes"]),
+        inStock: flagInStock && hasQty,
+        qty: qtyNum
+      };
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[m]));
+    }
+
+    function renderMenu() {
+      const filtered = allItems.filter((item) => {
+        if (!item.inStock || !item.name) return false;
+
+        const matchesCategory =
+          selectedCategory === "All" ||
+          item.category.toLowerCase() === selectedCategory.toLowerCase();
+
+        if (!matchesCategory) return false;
+
+        if (!searchQuery) return true;
+
+        const searchable = [
+          item.category,
+          item.subcategory,
+          item.name,
+          item.origin,
+          item.spec,
+          item.notes
+        ].join(" ").toLowerCase();
+
+        return searchable.includes(searchQuery);
+      });
+
+      if (filtered.length === 0) {
+        menuContainer.innerHTML = `
+          <div class="status-box">
+            No matching bottles or pours found. Try clearing your search or switching categories.
+          </div>
+        `;
+        return;
+      }
+
+      const groups = new Map();
+      filtered.forEach((item) => {
+        const cat = item.category || "Collection";
+        const sub = item.subcategory;
+        const groupKey = selectedCategory === "All"
+          ? (sub ? `${cat} · ${sub}` : cat)
+          : (sub || cat);
+
+        if (!groups.has(groupKey)) groups.set(groupKey, []);
+        groups.get(groupKey).push(item);
+      });
+
+      let html = "";
+      groups.forEach((items, groupTitle) => {
+        html += `
+          <section class="group-section">
+            <div class="group-header">
+              <h2 class="group-title">${escapeHTML(groupTitle)}</h2>
+              <span class="group-count">${items.length} ${items.length === 1 ? "selection" : "selections"}</span>
+            </div>
+            ${items.map((item) => {
+              const metaParts = [item.origin, item.spec].filter(Boolean);
+              const qtyBadge = item.qty && item.qty > 1
+                ? `<span class="item-qty">${item.qty} avail</span>`
+                : "";
+              return `
+                <article class="item">
+                  <div class="item-header">
+                    <h3 class="item-name">${escapeHTML(item.name)}</h3>
+                    ${qtyBadge}
+                  </div>
+                  ${metaParts.length ? `<div class="item-meta">${escapeHTML(metaParts.join(" · "))}</div>` : ""}
+                  ${item.notes ? `<p class="item-notes">${escapeHTML(item.notes)}</p>` : ""}
+                </article>
+              `;
+            }).join("")}
+          </section>
+        `;
+      });
+
+      menuContainer.innerHTML = html;
+    }
+
+    function loadMenu() {
+      // Append cache-buster so mobile browsers always fetch fresh sheet edits
+      const cacheBustedUrl = `${GOOGLE_SHEET_CSV_URL}&_t=${Date.now()}`;
+
+      Papa.parse(cacheBustedUrl, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          allItems = results.data.map(normalizeRow);
+          renderMenu();
+        },
+        error: () => {
+          menuContainer.innerHTML = `
+            <div class="status-box">
+              Unable to load the collection right now. Please check your connection.
+            </div>
+          `;
+        }
+      });
+    }
+
+    // Event Listeners
+    categoryTabs.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tab");
+      if (!btn) return;
+
+      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+      btn.classList.add("active");
+      selectedCategory = btn.dataset.category;
+      renderMenu();
+    });
+
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      clearSearchBtn.classList.toggle("visible", searchQuery.length > 0);
+      renderMenu();
+    });
+
+    clearSearchBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      searchQuery = "";
+      clearSearchBtn.classList.remove("visible");
+      searchInput.focus();
+      renderMenu();
+    });
+
+    // Initialize
+    loadMenu();
+  </script>
+</body>
+</html>
