@@ -167,8 +167,7 @@
     }
 
     .tab {
-      flex: 1;
-      min-width: 72px;
+      flex: 1 0 auto;
       background: transparent;
       border: 1px solid var(--gold-dim);
       color: var(--text-secondary);
@@ -322,7 +321,7 @@
     <header>
       <div class="eyebrow">House Collection</div>
       <h1>927 Holly Creek</h1>
-      <p class="subtitle">Tonight’s available wines, drafts &amp; spirits</p>
+      <p class="subtitle">Tonight’s available wines, drafts, spirits &amp; zero-proof pours</p>
     </header>
 
     <div class="controls">
@@ -335,7 +334,7 @@
           type="text"
           id="searchInput"
           class="search-input"
-          placeholder="Search wine, beer, bourbon, tasting notes..."
+          placeholder="Search wine, beer, bourbon, non-alcoholic..."
           aria-label="Search drinks"
         />
         <button id="clearSearch" class="clear-btn" aria-label="Clear search">&times;</button>
@@ -346,6 +345,7 @@
         <button class="tab" data-category="Wine" role="tab">Wine</button>
         <button class="tab" data-category="Beer" role="tab">Beer</button>
         <button class="tab" data-category="Liquor" role="tab">Liquor</button>
+        <button class="tab" data-category="Non-Alcoholic" role="tab">Non-Alcoholic</button>
       </div>
     </div>
 
@@ -375,169 +375,4 @@
 
     function normalizeRow(row) {
       const getVal = (keys) => {
-        for (const k of Object.keys(row)) {
-          if (keys.includes(k.trim().toLowerCase())) {
-            return (row[k] || "").toString().trim();
-          }
-        }
-        return "";
-      };
-
-      const stockRaw = getVal(["in stock", "instock", "available", "stock"]).toLowerCase();
-      const qtyRaw = getVal(["qty in stock", "qty", "quantity"]);
-      const qtyNum = qtyRaw !== "" ? parseFloat(qtyRaw) : null;
-
-      // Item is available ONLY if "In Stock" is not False AND "Qty In Stock" (if entered) is > 0
-      const flagInStock = !["false", "no", "0", "out", "sold out"].includes(stockRaw);
-      const hasQty = qtyNum === null || isNaN(qtyNum) || qtyNum > 0;
-
-      return {
-        category: getVal(["category"]),
-        subcategory: getVal(["subcategory"]),
-        name: getVal(["name"]),
-        origin: getVal(["producer / origin", "producer", "origin"]),
-        spec: getVal(["abv / vintage", "abv", "vintage"]),
-        notes: getVal(["notes"]),
-        inStock: flagInStock && hasQty,
-        qty: qtyNum
-      };
-    }
-
-    function escapeHTML(str) {
-      return str.replace(/[&<>"']/g, (m) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[m]));
-    }
-
-    function renderMenu() {
-      const filtered = allItems.filter((item) => {
-        if (!item.inStock || !item.name) return false;
-
-        const matchesCategory =
-          selectedCategory === "All" ||
-          item.category.toLowerCase() === selectedCategory.toLowerCase();
-
-        if (!matchesCategory) return false;
-
-        if (!searchQuery) return true;
-
-        const searchable = [
-          item.category,
-          item.subcategory,
-          item.name,
-          item.origin,
-          item.spec,
-          item.notes
-        ].join(" ").toLowerCase();
-
-        return searchable.includes(searchQuery);
-      });
-
-      if (filtered.length === 0) {
-        menuContainer.innerHTML = `
-          <div class="status-box">
-            No matching bottles or pours found. Try clearing your search or switching categories.
-          </div>
-        `;
-        return;
-      }
-
-      const groups = new Map();
-      filtered.forEach((item) => {
-        const cat = item.category || "Collection";
-        const sub = item.subcategory;
-        const groupKey = selectedCategory === "All"
-          ? (sub ? `${cat} · ${sub}` : cat)
-          : (sub || cat);
-
-        if (!groups.has(groupKey)) groups.set(groupKey, []);
-        groups.get(groupKey).push(item);
-      });
-
-      let html = "";
-      groups.forEach((items, groupTitle) => {
-        html += `
-          <section class="group-section">
-            <div class="group-header">
-              <h2 class="group-title">${escapeHTML(groupTitle)}</h2>
-              <span class="group-count">${items.length} ${items.length === 1 ? "selection" : "selections"}</span>
-            </div>
-            ${items.map((item) => {
-              const metaParts = [item.origin, item.spec].filter(Boolean);
-              const qtyBadge = item.qty && item.qty > 1
-                ? `<span class="item-qty">${item.qty} avail</span>`
-                : "";
-              return `
-                <article class="item">
-                  <div class="item-header">
-                    <h3 class="item-name">${escapeHTML(item.name)}</h3>
-                    ${qtyBadge}
-                  </div>
-                  ${metaParts.length ? `<div class="item-meta">${escapeHTML(metaParts.join(" · "))}</div>` : ""}
-                  ${item.notes ? `<p class="item-notes">${escapeHTML(item.notes)}</p>` : ""}
-                </article>
-              `;
-            }).join("")}
-          </section>
-        `;
-      });
-
-      menuContainer.innerHTML = html;
-    }
-
-    function loadMenu() {
-      // Append cache-buster so mobile browsers always fetch fresh sheet edits
-      const cacheBustedUrl = `${GOOGLE_SHEET_CSV_URL}&_t=${Date.now()}`;
-
-      Papa.parse(cacheBustedUrl, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          allItems = results.data.map(normalizeRow);
-          renderMenu();
-        },
-        error: () => {
-          menuContainer.innerHTML = `
-            <div class="status-box">
-              Unable to load the collection right now. Please check your connection.
-            </div>
-          `;
-        }
-      });
-    }
-
-    // Event Listeners
-    categoryTabs.addEventListener("click", (e) => {
-      const btn = e.target.closest(".tab");
-      if (!btn) return;
-
-      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-      btn.classList.add("active");
-      selectedCategory = btn.dataset.category;
-      renderMenu();
-    });
-
-    searchInput.addEventListener("input", (e) => {
-      searchQuery = e.target.value.trim().toLowerCase();
-      clearSearchBtn.classList.toggle("visible", searchQuery.length > 0);
-      renderMenu();
-    });
-
-    clearSearchBtn.addEventListener("click", () => {
-      searchInput.value = "";
-      searchQuery = "";
-      clearSearchBtn.classList.remove("visible");
-      searchInput.focus();
-      renderMenu();
-    });
-
-    // Initialize
-    loadMenu();
-  </script>
-</body>
-</html>
+        for (const k of Object.keys(row
